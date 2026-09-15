@@ -1,0 +1,51 @@
+{
+  "fiscalYear": "FY26-27",
+  "assessmentYear": 2027,
+  "generated": "2026-09-15",
+  "countyRate": 0.6,
+  "source": "Chatham County CAMA Parcels, 2027 assessment roll",
+  "groups": [
+    {
+      "group": "Residential",
+      "parcels": 44112,
+      "assessedValue": 17715274974,
+      "pctOfBase": 87.3,
+      "countyTax": 106291650
+    },
+    {
+      "group": "Commercial",
+      "parcels": 1579,
+      "assessedValue": 1561642433,
+      "pctOfBase": 7.7,
+      "countyTax": 9369855
+    },
+    {
+      "group": "Industrial",
+      "parcels": 287,
+      "assessedValue": 656837513,
+      "pctOfBase": 3.2,
+      "countyTax": 3941025
+    },
+    {
+      "group": "Exempt / Partial Exempt",
+      "parcels": 3105,
+      "assessedValue": 368438444,
+      "pctOfBase": 1.8,
+      "countyTax": 2210631
+    },
+    {
+      "group": "Other",
+      "parcels": 4,
+      "assessedValue": 1535877,
+      "pctOfBase": 0.0,
+      "countyTax": 9215
+    }
+  ],
+  "total": {
+    "group": "TOTAL",
+    "parcels": 49087,
+    "assessedValue": 20303729241,
+    "pctOfBase": 100.0,
+    "countyTax": 121822375
+  }
+}
