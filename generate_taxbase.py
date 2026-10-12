@@ -130,20 +130,30 @@ def build_summary(parcels: list[dict]) -> dict:
         "source": "Chatham County CAMA Parcels, 2027 assessment roll",
         "historySource": (
             "NC Department of Revenue LG01 county taxable valuation reports "
-            "(FY22-23 through FY25-26); Chatham County FY26-27 approved budget. "
+            "(FY17-18 through FY25-26); Chatham County FY26-27 approved budget. "
             "NCDOR penny values are total taxable property divided by 10,000."
         ),
         "history": [
+            {"fiscalYear": "FY17-18", "taxablePropertyValue": 10609850868,
+             "pennyValue": 1060985, "taxRate": 0.6281, "revaluation": True},
+            {"fiscalYear": "FY18-19", "taxablePropertyValue": 11096603076,
+             "pennyValue": 1109660, "taxRate": 0.6281, "revaluation": False},
+            {"fiscalYear": "FY19-20", "taxablePropertyValue": 11599221682,
+             "pennyValue": 1159922, "taxRate": 0.67, "revaluation": False},
+            {"fiscalYear": "FY20-21", "taxablePropertyValue": 12007903707,
+             "pennyValue": 1200790, "taxRate": 0.67, "revaluation": False},
+            {"fiscalYear": "FY21-22", "taxablePropertyValue": 13836716022,
+             "pennyValue": 1383672, "taxRate": 0.665, "revaluation": True},
             {"fiscalYear": "FY22-23", "taxablePropertyValue": 14368626317,
-             "pennyValue": 1436863, "revaluation": False},
+             "pennyValue": 1436863, "taxRate": 0.665, "revaluation": False},
             {"fiscalYear": "FY23-24", "taxablePropertyValue": 15071155717,
-             "pennyValue": 1507116, "revaluation": False},
+             "pennyValue": 1507116, "taxRate": 0.685, "revaluation": False},
             {"fiscalYear": "FY24-25", "taxablePropertyValue": 15900684399,
-             "pennyValue": 1590068, "revaluation": False},
+             "pennyValue": 1590068, "taxRate": 0.725, "revaluation": False},
             {"fiscalYear": "FY25-26", "taxablePropertyValue": 22716432644,
-             "pennyValue": 2271643, "revaluation": True},
+             "pennyValue": 2271643, "taxRate": 0.6, "revaluation": True},
             {"fiscalYear": "FY26-27", "taxablePropertyValue": 23440000000,
-             "pennyValue": 2325634, "revaluation": False},
+             "pennyValue": 2325634, "taxRate": 0.6, "revaluation": False},
         ],
         "groups": groups,
         "total": {
