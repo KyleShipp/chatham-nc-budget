@@ -128,6 +128,23 @@ def build_summary(parcels: list[dict]) -> dict:
         "generated": date.today().isoformat(),
         "countyRate": COUNTY_RATE,
         "source": "Chatham County CAMA Parcels, 2027 assessment roll",
+        "historySource": (
+            "NC Department of Revenue LG01 county taxable valuation reports "
+            "(FY22-23 through FY25-26); Chatham County FY26-27 approved budget. "
+            "NCDOR penny values are total taxable property divided by 10,000."
+        ),
+        "history": [
+            {"fiscalYear": "FY22-23", "taxablePropertyValue": 14368626317,
+             "pennyValue": 1436863, "revaluation": False},
+            {"fiscalYear": "FY23-24", "taxablePropertyValue": 15071155717,
+             "pennyValue": 1507116, "revaluation": False},
+            {"fiscalYear": "FY24-25", "taxablePropertyValue": 15900684399,
+             "pennyValue": 1590068, "revaluation": False},
+            {"fiscalYear": "FY25-26", "taxablePropertyValue": 22716432644,
+             "pennyValue": 2271643, "revaluation": True},
+            {"fiscalYear": "FY26-27", "taxablePropertyValue": 23440000000,
+             "pennyValue": 2325634, "revaluation": False},
+        ],
         "groups": groups,
         "total": {
             "group": "TOTAL",

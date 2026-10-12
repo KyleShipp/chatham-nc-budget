@@ -4,6 +4,39 @@
   "generated": "2026-09-15",
   "countyRate": 0.6,
   "source": "Chatham County CAMA Parcels, 2027 assessment roll",
+  "historySource": "NC Department of Revenue LG01 county taxable valuation reports (FY22-23 through FY25-26); Chatham County FY26-27 approved budget. NCDOR penny values are total taxable property divided by 10,000.",
+  "history": [
+    {
+      "fiscalYear": "FY22-23",
+      "taxablePropertyValue": 14368626317,
+      "pennyValue": 1436863,
+      "revaluation": false
+    },
+    {
+      "fiscalYear": "FY23-24",
+      "taxablePropertyValue": 15071155717,
+      "pennyValue": 1507116,
+      "revaluation": false
+    },
+    {
+      "fiscalYear": "FY24-25",
+      "taxablePropertyValue": 15900684399,
+      "pennyValue": 1590068,
+      "revaluation": false
+    },
+    {
+      "fiscalYear": "FY25-26",
+      "taxablePropertyValue": 22716432644,
+      "pennyValue": 2271643,
+      "revaluation": true
+    },
+    {
+      "fiscalYear": "FY26-27",
+      "taxablePropertyValue": 23440000000,
+      "pennyValue": 2325634,
+      "revaluation": false
+    }
+  ],
   "groups": [
     {
       "group": "Residential",

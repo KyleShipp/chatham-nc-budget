@@ -123,12 +123,21 @@ export interface TaxBaseGroup {
   countyTax: number;
 }
 
+export interface TaxBaseHistoryPoint {
+  fiscalYear: string;
+  taxablePropertyValue: number;
+  pennyValue: number;
+  revaluation: boolean;
+}
+
 export interface TaxBaseData {
   fiscalYear: string;
   assessmentYear: number;
   generated: string;
   countyRate: number;
   source: string;
+  historySource: string;
+  history: TaxBaseHistoryPoint[];
   groups: TaxBaseGroup[];
   total: TaxBaseGroup;
 }
