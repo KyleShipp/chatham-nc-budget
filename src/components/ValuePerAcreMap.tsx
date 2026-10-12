@@ -24,7 +24,7 @@ interface ParcelCollection {
   metadata: {
     generated: string;
     total_features: number;
-    total_tax_value: number;
+    total_tax_value?: number;
   };
 }
 
@@ -70,7 +70,18 @@ export default function ValuePerAcreMap({ dataUrl }: { dataUrl: string }) {
   const [result, setResult] = useState<AnalysisResult | null>(null);
 
   const totalValue = useMemo(
-    () => data?.metadata.total_tax_value ?? 0,
+    () => {
+      if (!data) return 0;
+      const metadataTotal = data.metadata.total_tax_value;
+      return typeof metadataTotal === 'number' &&
+        Number.isFinite(metadataTotal) &&
+        metadataTotal > 0
+        ? metadataTotal
+        : data.features.reduce(
+            (sum, feature) => sum + feature.properties.tax_value,
+            0
+          );
+    },
     [data]
   );
 
