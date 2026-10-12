@@ -11,6 +11,7 @@ Interactive budget transparency tool for Chatham County, North Carolina. Turns p
 | **Overview** | Dashboard with total budget, per-capita spending, revenue/department breakdown, and budget highlights |
 | **Compare Years** | Side-by-side spending and revenue comparison across fiscal years with $ and % changes |
 | **Tax Base** | Current parcel assessed-value mix by property type and gross County rate-equivalent amounts |
+| **Value per Acre** | Map parcel value density and draw a polygon to total fully encompassed properties |
 | **Your Receipt** | Look up your property via Chatham County GIS and see how your tax bill breaks down across county services |
 | **Capital Plan** | 5-year CIP with filterable project and vehicle tables |
 | **Fee Schedule** | Searchable categorized fee list |
@@ -55,8 +56,9 @@ npm run build   # Static export to /out
    - `fees.json` — fee schedule
    - `debt.json` — debt service schedule
 3. Run `python generate_taxbase.py` to refresh `taxbase.json` from Chatham County GIS
-4. Run `npm run build`
-5. Push to `main` — GitHub Actions deploys automatically
+4. Run `python generate_value_per_acre.py` to refresh the parcel map GeoJSON
+5. Run `npm run build`
+6. Push to `main` — GitHub Actions deploys automatically
 
 ## Deployment
 
