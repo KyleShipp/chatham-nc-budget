@@ -30,7 +30,9 @@ interface ParcelCollection {
 
 interface AnalysisResult {
   parcels: number;
+  acres: number;
   value: number;
+  valuePerAcre: number;
   totalValue: number;
   percent: number;
 }
@@ -43,6 +45,13 @@ function formatCurrency(value: number): string {
     currency: 'USD',
     maximumFractionDigits: 0,
   }).format(value);
+}
+
+function formatAcres(value: number): string {
+  return `${value.toLocaleString('en-US', {
+    minimumFractionDigits: 2,
+    maximumFractionDigits: 2,
+  })} ac`;
 }
 
 function quantileBreaks(values: number[]): number[] {
@@ -61,7 +70,8 @@ export default function ValuePerAcreMap({ dataUrl }: { dataUrl: string }) {
   const containerRef = useRef<HTMLDivElement>(null);
   const mapRef = useRef<L.Map | null>(null);
   const parcelLayerRef = useRef<L.GeoJSON | null>(null);
-  const drawingLayerRef = useRef<L.Polygon | L.Polyline | null>(null);
+  const drawingLayerRef = useRef<L.LayerGroup | null>(null);
+  const guideLayerRef = useRef<L.Polyline | null>(null);
   const [data, setData] = useState<ParcelCollection | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [mapReady, setMapReady] = useState(false);
@@ -148,6 +158,7 @@ export default function ValuePerAcreMap({ dataUrl }: { dataUrl: string }) {
     const map = mapRef.current;
     if (!map || !drawing) return;
     const addPoint = (event: L.LeafletMouseEvent) => {
+      map.closePopup();
       setPoints((current) => [...current, [event.latlng.lat, event.latlng.lng]]);
     };
     map.getContainer().style.cursor = 'crosshair';
@@ -159,29 +170,99 @@ export default function ValuePerAcreMap({ dataUrl }: { dataUrl: string }) {
   }, [drawing, mapReady]);
 
   useEffect(() => {
+    const layer = parcelLayerRef.current;
+    if (!layer) return;
+
+    if (drawing) mapRef.current?.closePopup();
+    layer.eachLayer((parcelLayer) => {
+      const path = parcelLayer as L.Path;
+      path.options.interactive = !drawing;
+      const element = path.getElement?.();
+      if (element) element.setAttribute('pointer-events', drawing ? 'none' : 'auto');
+    });
+  }, [drawing, mapReady]);
+
+  useEffect(() => {
     const map = mapRef.current;
     if (!map) return;
     drawingLayerRef.current?.remove();
     drawingLayerRef.current = null;
-    if (points.length < 2) return;
+    if (points.length === 0) return;
 
     import('leaflet').then((L) => {
       if (!mapRef.current) return;
-      drawingLayerRef.current =
-        points.length >= 3
-          ? L.polygon(points, {
-              color: '#7c3aed',
-              fillColor: '#8b5cf6',
-              fillOpacity: 0.14,
-              weight: 3,
-            }).addTo(mapRef.current)
-          : L.polyline(points, {
-              color: '#7c3aed',
-              weight: 3,
-              dashArray: '6 5',
-            }).addTo(mapRef.current);
+      const group = L.layerGroup().addTo(mapRef.current);
+      if (points.length >= 3) {
+        L.polygon(points, {
+          color: '#7c3aed',
+          fillColor: '#8b5cf6',
+          fillOpacity: 0.14,
+          weight: 3,
+        }).addTo(group);
+      } else if (points.length === 2) {
+        L.polyline(points, {
+          color: '#7c3aed',
+          weight: 3,
+        }).addTo(group);
+      }
+      points.forEach((point) => {
+        L.circleMarker(point, {
+          radius: 6,
+          color: '#ffffff',
+          weight: 2,
+          fillColor: '#7c3aed',
+          fillOpacity: 1,
+          interactive: false,
+        }).addTo(group);
+      });
+      drawingLayerRef.current = group;
     });
   }, [points]);
+
+  useEffect(() => {
+    const map = mapRef.current;
+    if (!map || !drawing || points.length === 0) {
+      guideLayerRef.current?.remove();
+      guideLayerRef.current = null;
+      return;
+    }
+
+    let disposed = false;
+    let updateGuide: ((event: L.LeafletMouseEvent) => void) | null = null;
+    let resetGuide: (() => void) | null = null;
+    const lastPoint = points[points.length - 1];
+    import('leaflet').then((L) => {
+      if (disposed || !mapRef.current) return;
+      const guide = L.polyline([lastPoint, lastPoint], {
+              color: '#7c3aed',
+              weight: 2,
+              dashArray: '6 5',
+              interactive: false,
+            }).addTo(mapRef.current);
+      guideLayerRef.current = guide;
+
+      updateGuide = (event: L.LeafletMouseEvent) => {
+        guide.setLatLngs([lastPoint, event.latlng]);
+      };
+      resetGuide = () => guide.setLatLngs([lastPoint, lastPoint]);
+      map.on('mousemove', updateGuide);
+      map.on('mouseout', resetGuide);
+
+      if (disposed) {
+        map.off('mousemove', updateGuide);
+        map.off('mouseout', resetGuide);
+        guide.remove();
+      }
+    });
+
+    return () => {
+      disposed = true;
+      if (updateGuide) map.off('mousemove', updateGuide);
+      if (resetGuide) map.off('mouseout', resetGuide);
+      guideLayerRef.current?.remove();
+      guideLayerRef.current = null;
+    };
+  }, [drawing, points]);
 
   const clear = useCallback(() => {
     setDrawing(false);
@@ -189,6 +270,8 @@ export default function ValuePerAcreMap({ dataUrl }: { dataUrl: string }) {
     setResult(null);
     drawingLayerRef.current?.remove();
     drawingLayerRef.current = null;
+    guideLayerRef.current?.remove();
+    guideLayerRef.current = null;
   }, []);
 
   const analyze = useCallback(() => {
@@ -204,9 +287,12 @@ export default function ValuePerAcreMap({ dataUrl }: { dataUrl: string }) {
       booleanWithin(feature as GeoJSON.Feature<GeoJSON.Polygon | GeoJSON.MultiPolygon>, area)
     );
     const value = encompassed.reduce((sum, feature) => sum + feature.properties.tax_value, 0);
+    const acres = encompassed.reduce((sum, feature) => sum + feature.properties.acres, 0);
     setResult({
       parcels: encompassed.length,
+      acres,
       value,
+      valuePerAcre: acres > 0 ? value / acres : 0,
       totalValue,
       percent: totalValue > 0 ? (value / totalValue) * 100 : 0,
     });
@@ -276,20 +362,28 @@ export default function ValuePerAcreMap({ dataUrl }: { dataUrl: string }) {
         </div>
 
         {result && (
-          <div className="mt-4 grid gap-3 rounded-lg border border-violet-200 bg-violet-50 p-4 sm:grid-cols-3">
+          <div className="mt-4 grid gap-3 rounded-lg border border-violet-200 bg-violet-50 p-4 sm:grid-cols-5">
             <div>
               <p className="text-xs font-medium uppercase tracking-wide text-violet-700">Fully encompassed parcels</p>
               <p className="text-xl font-bold">{result.parcels.toLocaleString()}</p>
+            </div>
+            <div>
+              <p className="text-xs font-medium uppercase tracking-wide text-violet-700">Total acres</p>
+              <p className="text-xl font-bold">{formatAcres(result.acres)}</p>
             </div>
             <div>
               <p className="text-xs font-medium uppercase tracking-wide text-violet-700">Total assessed value</p>
               <p className="text-xl font-bold">{formatCurrency(result.value)}</p>
             </div>
             <div>
+              <p className="text-xs font-medium uppercase tracking-wide text-violet-700">Value per acre</p>
+              <p className="text-xl font-bold">{formatCurrency(result.valuePerAcre)}</p>
+            </div>
+            <div>
               <p className="text-xs font-medium uppercase tracking-wide text-violet-700">Share of County parcel value</p>
               <p className="text-xl font-bold">{result.percent.toFixed(2)}%</p>
             </div>
-            <p className="text-xs text-gray-600 sm:col-span-3">
+            <p className="text-xs text-gray-600 sm:col-span-5">
               Only parcels completely inside the polygon count. The percentage compares their value with{' '}
               {formatCurrency(result.totalValue)} across the full County parcel dataset.
             </p>
