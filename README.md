@@ -11,11 +11,29 @@ Interactive budget transparency tool for Chatham County, North Carolina. Turns p
 | **Overview** | Dashboard with total budget, per-capita spending, revenue/department breakdown, and budget highlights |
 | **Compare Years** | Side-by-side spending and revenue comparison across fiscal years with $ and % changes |
 | **Tax Base** | Current parcel assessed-value mix by property type and gross County rate-equivalent amounts |
-| **Value per Acre** | Map parcel value density and draw a polygon to total fully encompassed properties |
+| **Value per Acre** | Map parcel value density, draw a polygon to highlight fully encompassed properties, and estimate annual County property tax |
 | **Your Receipt** | Look up your property via Chatham County GIS and see how your tax bill breaks down across county services |
 | **Capital Plan** | 5-year CIP with filterable project and vehicle tables |
 | **Fee Schedule** | Searchable categorized fee list |
 | **About** | Methodology, data sources, and limitations |
+
+## Parcel Area Analysis
+
+The value-per-acre map is 720 pixels tall and preserves the current viewport
+when drawing, completing, or clearing an analysis. Click to place vertices,
+then double-click the final point to close and analyze, or use **Analyze
+polygon** after placing at least three points. Normal double-click zoom is
+disabled only while drawing. Results remove the selection sketch and shade
+the exact counted parcel geometries purple; **Clear analysis** removes them.
+
+Estimated annual County tax uses the fiscal year and rate in
+`public/data/taxbase.json`: selected assessed value divided by 100, multiplied
+by the County rate, with no collection-rate discount. Municipal and
+special-district taxes are excluded because rates vary by parcel. These are
+estimates, not actual bills or collections; parcel-specific exemptions,
+relief, fees, and collection losses are not modeled. Built floor area is
+unavailable in the map dataset and source CAMA parcel service. Land acreage
+cannot substitute for building square footage.
 
 ## Data Coverage
 

@@ -2,6 +2,10 @@
 
 import booleanWithin from '@turf/boolean-within';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { calculateTaxBill } from '@/lib/calculations';
+import { getTaxBase } from '@/lib/data';
+
+const { fiscalYear, countyRate } = getTaxBase();
 
 interface ParcelProperties {
   parcel_id: string;
@@ -30,6 +34,7 @@ interface ParcelCollection {
 
 interface AnalysisResult {
   parcels: number;
+  features: ParcelFeature[];
   acres: number;
   value: number;
   valuePerAcre: number;
@@ -72,12 +77,18 @@ export default function ValuePerAcreMap({ dataUrl }: { dataUrl: string }) {
   const parcelLayerRef = useRef<L.GeoJSON | null>(null);
   const drawingLayerRef = useRef<L.LayerGroup | null>(null);
   const guideLayerRef = useRef<L.Polyline | null>(null);
+  const pointsRef = useRef<Array<[number, number]>>([]);
   const [data, setData] = useState<ParcelCollection | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [mapReady, setMapReady] = useState(false);
   const [drawing, setDrawing] = useState(false);
   const [points, setPoints] = useState<Array<[number, number]>>([]);
+  const updatePoints = useCallback((next: Array<[number, number]>) => {
+    pointsRef.current = next;
+    setPoints(next);
+  }, []);
   const [result, setResult] = useState<AnalysisResult | null>(null);
+  const countyTax = result ? calculateTaxBill(result.value, countyRate, 1) : 0;
 
   const totalValue = useMemo(
     () => {
@@ -116,6 +127,9 @@ export default function ValuePerAcreMap({ dataUrl }: { dataUrl: string }) {
         zoom: 10,
         preferCanvas: true,
       });
+      const analysisPane = map.createPane('analysis');
+      analysisPane.style.zIndex = '450';
+      analysisPane.style.pointerEvents = 'none';
       L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
         attribution: '© OpenStreetMap contributors',
         maxZoom: 19,
@@ -155,21 +169,6 @@ export default function ValuePerAcreMap({ dataUrl }: { dataUrl: string }) {
   }, [data]);
 
   useEffect(() => {
-    const map = mapRef.current;
-    if (!map || !drawing) return;
-    const addPoint = (event: L.LeafletMouseEvent) => {
-      map.closePopup();
-      setPoints((current) => [...current, [event.latlng.lat, event.latlng.lng]]);
-    };
-    map.getContainer().style.cursor = 'crosshair';
-    map.on('click', addPoint);
-    return () => {
-      map.off('click', addPoint);
-      map.getContainer().style.cursor = '';
-    };
-  }, [drawing, mapReady]);
-
-  useEffect(() => {
     const layer = parcelLayerRef.current;
     if (!layer) return;
 
@@ -184,40 +183,67 @@ export default function ValuePerAcreMap({ dataUrl }: { dataUrl: string }) {
 
   useEffect(() => {
     const map = mapRef.current;
-    if (!map) return;
-    drawingLayerRef.current?.remove();
-    drawingLayerRef.current = null;
-    if (points.length === 0) return;
+    if (!map || !mapReady || (!result && points.length === 0)) return;
 
+    let disposed = false;
+    let group: L.LayerGroup | null = null;
     import('leaflet').then((L) => {
-      if (!mapRef.current) return;
-      const group = L.layerGroup().addTo(mapRef.current);
+      if (disposed) return;
+      const layerGroup = L.layerGroup().addTo(map);
+      group = layerGroup;
+      drawingLayerRef.current = layerGroup;
+      if (result && !drawing) {
+        const selectedParcels: GeoJSON.FeatureCollection = {
+          type: 'FeatureCollection',
+          features: result.features,
+        };
+        L.geoJSON(selectedParcels, {
+          pane: 'analysis',
+          interactive: false,
+          style: {
+            color: '#7c3aed',
+            fillColor: '#8b5cf6',
+            fillOpacity: 0.65,
+            weight: 2,
+          },
+        }).addTo(layerGroup);
+        return;
+      }
       if (points.length >= 3) {
         L.polygon(points, {
+          pane: 'analysis',
           color: '#7c3aed',
           fillColor: '#8b5cf6',
           fillOpacity: 0.14,
           weight: 3,
-        }).addTo(group);
+          interactive: false,
+        }).addTo(layerGroup);
       } else if (points.length === 2) {
         L.polyline(points, {
+          pane: 'analysis',
           color: '#7c3aed',
           weight: 3,
-        }).addTo(group);
+          interactive: false,
+        }).addTo(layerGroup);
       }
       points.forEach((point) => {
         L.circleMarker(point, {
+          pane: 'analysis',
           radius: 6,
           color: '#ffffff',
           weight: 2,
           fillColor: '#7c3aed',
           fillOpacity: 1,
           interactive: false,
-        }).addTo(group);
+        }).addTo(layerGroup);
       });
-      drawingLayerRef.current = group;
     });
-  }, [points]);
+    return () => {
+      disposed = true;
+      group?.remove();
+      if (drawingLayerRef.current === group) drawingLayerRef.current = null;
+    };
+  }, [points, result, drawing, mapReady]);
 
   useEffect(() => {
     const map = mapRef.current;
@@ -266,17 +292,18 @@ export default function ValuePerAcreMap({ dataUrl }: { dataUrl: string }) {
 
   const clear = useCallback(() => {
     setDrawing(false);
-    setPoints([]);
+    updatePoints([]);
     setResult(null);
     drawingLayerRef.current?.remove();
     drawingLayerRef.current = null;
     guideLayerRef.current?.remove();
     guideLayerRef.current = null;
-  }, []);
+  }, [updatePoints]);
 
   const analyze = useCallback(() => {
-    if (!data || points.length < 3) return;
-    const ring = points.map(([lat, lng]) => [lng, lat]);
+    const current = pointsRef.current;
+    if (!data || current.length < 3) return;
+    const ring = current.map(([lat, lng]) => [lng, lat]);
     ring.push(ring[0]);
     const area: GeoJSON.Feature<GeoJSON.Polygon> = {
       type: 'Feature',
@@ -290,6 +317,7 @@ export default function ValuePerAcreMap({ dataUrl }: { dataUrl: string }) {
     const acres = encompassed.reduce((sum, feature) => sum + feature.properties.acres, 0);
     setResult({
       parcels: encompassed.length,
+      features: encompassed,
       acres,
       value,
       valuePerAcre: acres > 0 ? value / acres : 0,
@@ -297,7 +325,33 @@ export default function ValuePerAcreMap({ dataUrl }: { dataUrl: string }) {
       percent: totalValue > 0 ? (value / totalValue) * 100 : 0,
     });
     setDrawing(false);
-  }, [data, points, totalValue]);
+  }, [data, totalValue]);
+
+  useEffect(() => {
+    const map = mapRef.current;
+    if (!map || !drawing) return;
+    const addPoint = (event: L.LeafletMouseEvent) => {
+      // The first click of a double-click supplies the final vertex.
+      if (event.originalEvent.detail > 1) return;
+      map.closePopup();
+      const current = pointsRef.current;
+      const last = current[current.length - 1];
+      if (last?.[0] === event.latlng.lat && last?.[1] === event.latlng.lng) return;
+      updatePoints([...current, [event.latlng.lat, event.latlng.lng]]);
+    };
+    const finish = () => analyze();
+    const doubleClickZoomEnabled = map.doubleClickZoom.enabled();
+    map.doubleClickZoom.disable();
+    map.getContainer().style.cursor = 'crosshair';
+    map.on('click', addPoint);
+    map.on('dblclick', finish);
+    return () => {
+      map.off('click', addPoint);
+      map.off('dblclick', finish);
+      if (doubleClickZoomEnabled) map.doubleClickZoom.enable();
+      map.getContainer().style.cursor = '';
+    };
+  }, [drawing, mapReady, analyze, updatePoints]);
 
   if (error) {
     return (
@@ -340,7 +394,7 @@ export default function ValuePerAcreMap({ dataUrl }: { dataUrl: string }) {
               </button>
               <button
                 type="button"
-                onClick={() => setPoints((current) => current.slice(0, -1))}
+                onClick={() => updatePoints(pointsRef.current.slice(0, -1))}
                 disabled={points.length === 0}
                 className="rounded-lg border px-3 py-2 text-sm font-medium disabled:opacity-40"
               >
@@ -350,7 +404,8 @@ export default function ValuePerAcreMap({ dataUrl }: { dataUrl: string }) {
                 Cancel
               </button>
               <span className="text-sm text-gray-500">
-                Click at least three map points ({points.length} placed).
+                Click to add points; double-click the final point to close and analyze
+                (at least 3 points; {points.length} placed).
               </span>
             </>
           )}
@@ -362,7 +417,7 @@ export default function ValuePerAcreMap({ dataUrl }: { dataUrl: string }) {
         </div>
 
         {result && (
-          <div className="mt-4 grid gap-3 rounded-lg border border-violet-200 bg-violet-50 p-4 sm:grid-cols-5">
+          <div className="mt-4 grid gap-3 rounded-lg border border-violet-200 bg-violet-50 p-4 sm:grid-cols-2 lg:grid-cols-4">
             <div>
               <p className="text-xs font-medium uppercase tracking-wide text-violet-700">Fully encompassed parcels</p>
               <p className="text-xl font-bold">{result.parcels.toLocaleString()}</p>
@@ -383,14 +438,38 @@ export default function ValuePerAcreMap({ dataUrl }: { dataUrl: string }) {
               <p className="text-xs font-medium uppercase tracking-wide text-violet-700">Share of County parcel value</p>
               <p className="text-xl font-bold">{result.percent.toFixed(2)}%</p>
             </div>
-            <p className="text-xs text-gray-600 sm:col-span-5">
+            <div>
+              <p className="text-xs font-medium uppercase tracking-wide text-violet-700">Built floor area (sq ft)</p>
+              <p className="text-xl font-bold">Not available</p>
+            </div>
+            <div>
+              <p className="text-xs font-medium uppercase tracking-wide text-violet-700">Estimated annual County tax</p>
+              <p className="text-xl font-bold">{formatCurrency(countyTax)}</p>
+            </div>
+            <div>
+              <p className="text-xs font-medium uppercase tracking-wide text-violet-700">Estimated annual County tax / acre</p>
+              <p className="text-xl font-bold">{result.acres > 0 ? formatCurrency(countyTax / result.acres) : '—'}</p>
+            </div>
+            <p className="text-xs text-gray-600 sm:col-span-2 lg:col-span-4">
               Only parcels completely inside the polygon count. The percentage compares their value with{' '}
               {formatCurrency(result.totalValue)} across the full County parcel dataset.
+              Counted parcels are shaded purple; the selection outline and vertices are removed.
+            </p>
+            <p className="text-xs text-gray-600 sm:col-span-2 lg:col-span-4">
+              {fiscalYear} estimated annual County property tax = selected assessed value &divide; 100
+              &times; ${countyRate.toFixed(2)} per $100. Municipal and special-district taxes are not
+              included because their rates vary by parcel. These are rate-based estimates, not actual
+              bills or collections; parcel-specific exemptions, relief, fees, and collection losses
+              are not modeled.
+            </p>
+            <p className="text-xs text-gray-600 sm:col-span-2 lg:col-span-4">
+              Building square footage is not included in the map dataset or its source parcel service.
+              Parcel acreage measures land area, not building footprint or floor area.
             </p>
           </div>
         )}
       </div>
-      <div ref={containerRef} className="h-[600px] overflow-hidden rounded-xl border" />
+      <div ref={containerRef} className="h-[720px] overflow-hidden rounded-xl border" />
       <p className="mt-2 text-xs text-gray-500">
         {data.metadata.total_features.toLocaleString()} mapped parcels · Data generated {data.metadata.generated}
       </p>
